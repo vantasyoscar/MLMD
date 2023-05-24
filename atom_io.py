@@ -1,3 +1,6 @@
+import numpy as np
+from atom import Atom
+
 #读取某一行的信息并返回列表，用来读取XDATCAR
 def wash(line):
     line = line.split(" ")
