@@ -1,6 +1,7 @@
 import numpy as np
-def get_neighbor_atoms(coordinates, cutoff=5, lattice=None):
-    """
+
+def get_neighbor_atoms(coordinates: np.ndarray, cutoff: float = 5, lattice: np.ndarray = None) -> list:
+    r"""
     获取原子相邻的原子序号
 
     Args:
@@ -45,12 +46,11 @@ def get_neighbor_atoms(coordinates, cutoff=5, lattice=None):
             if distance < cutoff:
                 close_atoms.append(j)
         result.append(close_atoms)
-
     return result
 
 
 def get_coordinates_from_indices(coordinates: np.ndarray, indices_list: list) -> list:
-    """
+    r"""
     该函数接受坐标数组和原子序数列表作为输入，并返回一个列表，
     其中每个元素是一个与对应原子序数对应的原子坐标列表
 
@@ -68,7 +68,7 @@ def get_coordinates_from_indices(coordinates: np.ndarray, indices_list: list) ->
     return result
 
 def translate_coordinates(coords_within_distance, coordinates):
-    """
+    r"""
     将坐标系平移，使得指定的`coordinates`坐标为原点，返回平移后的坐标系。
 
     Args:
