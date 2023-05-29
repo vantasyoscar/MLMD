@@ -18,7 +18,7 @@ def load_position(startline, Atom_dict, lines):
         direct = []
         for i in lines[startline:startline + Atom_dict[j].number]:
             direct.append([float(k) for k in wash(i)])
-        pos = np.matrix(direct)             #直接用direct的坐标.dot(Atom_dict[j].lattice)
+        pos = np.matrix(direct).dot(Atom_dict[j].lattice)             #用笛卡尔坐标
         startline += Atom_dict[j].number
         Atom_dict[j].position.append(np.array(pos))
     
