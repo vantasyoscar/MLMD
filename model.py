@@ -112,6 +112,10 @@ if __name__ == "__main__":
     new_input = torch.zeros_like(input)
     permu_index = torch.LongTensor([2, 1, 0, 3, 4, 5, 6, 7, 8, 9])      ### Change position 0 and 2 atom_list will not change.
     new_input[permu_index] = input
+    diff_input = torch.zeros_like(input)
+    permu_index = torch.LongTensor([1, 0, 2, 3, 4, 5, 6, 7, 8, 9])      ### Change position 0 and 1 atom_list will change.
+    diff_input[permu_index] = input
     print(input[0:3, :])
     print(new_input[0:3, :])
-    print(model(input), model(new_input))       ### Here we verify that the two input will not change.
+    print(diff_input[0:3, :])
+    print(model(input), model(new_input), model(diff_input))       ### Here we verify that the two input will not change.
