@@ -90,18 +90,28 @@ class DNN_sym(nn.Module):
     
 
 if __name__ == "__main__":
-    import random
     embed_layers = [20, 40]
     linear_layers = [64, 128, 256]
     atom = 1
-    atom_list = []
-    for _ in range(10):
-        atom_list.append(random.randint(1, 2))
-    print(atom_list)
+    atom_list = [1, 2, 1, 2, 1, 2, 1, 1, 2, 1]
     model = DNN_sym(atom, atom_list, embed_layers, linear_layers)
     print(model)
     model.to('cpu')
     input = torch.rand(len(atom_list), 3)
     input.to('cpu')
+    target = torch.rand(3)
+    target.to('cpu')
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     output = model(input)
-    print(output)
+    loss = criterion(output, target)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    # An illustration of permutation invariant
+    new_input = torch.zeros_like(input)
+    permu_index = torch.LongTensor([2, 1, 0, 3, 4, 5, 6, 7, 8, 9])      ### Change position 0 and 2 atom_list will not change.
+    new_input[permu_index] = input
+    print(input[0:3, :])
+    print(new_input[0:3, :])
+    print(model(input), model(new_input))       ### Here we verify that the two input will not change.
