@@ -20,8 +20,25 @@ class DNN_sym(nn.Module):
     r'''
     Creating a DNN model that is permutation invariant. 
     Here we only implement permutation invariant DNN model for 2 different atoms.
+
+    Args::
+    atom: int: A index to distinguish the core atom. (e.g. core atom H -> 1)
+    atom_list: list[int]: A list of the index of the neighbor atoms. (e.g. [H, O, O, H, H] -> [1, 2, 2, 1, 1])
+    embedding_dim: list[int]: Determine the structure of the full-connect embedding net structure. (e.g. [20, 40] -> [nn.Linear(3, 20), 
+     nn.Linear(20, 40) ]).
+    linear_layers: list[int]: Determine the structure of the full-connect fitting net structure. Same as embedding_dim.
+
+    Input::
+    input.size() = (num_neighbor_atoms, 3). Each row is the cartesian position of the atom.
+
+    Output::
+    output.size() = (3). Gives out the velocity(displacement) of the core atom.
+
+    Example::
+    Please see the example in "__main__".
+
     '''
-    def __init__(self, atom,atom_list, embedding_dim: list[int], linear_layers: list[int]) -> None:
+    def __init__(self, atom: int, atom_list: list[int], embedding_dim: list[int], linear_layers: list[int]) -> None:
         super().__init__()
         self.atom = atom
         self.atom_list = atom_list
@@ -29,19 +46,23 @@ class DNN_sym(nn.Module):
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
         self.embed1 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
-
+        layers = []
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
         self.embed2 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
-
+        layers = []
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
         self.embed12 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
-
+        layers = []
         for i in range(len(linear_layers)-1):
             layers.append(nn.Linear(linear_layers[i], linear_layers[i+1]))
         self.linear_layers = nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]) ,*layers)
         self.output_layer = nn.Linear(linear_layers[-1], 3)
+
+    def new_atom_list(self, atom, atom_list):
+        self.atom = atom
+        self.atom_list = atom_list
 
     def forward(self, x):
         if (self.atom == 1 and self.atom_list[0] == 1):
@@ -60,7 +81,7 @@ class DNN_sym(nn.Module):
             else:
                 g_temp = self.embed12(x[i])
                 g = torch.cat([g, g_temp], 0)
-        g = g.view(-1, 3)
+        g = g.view(len(x), -1)
         d = g.T @ x
         d = d.view(-1, 1).squeeze()
         d = self.linear_layers(d)
@@ -69,6 +90,18 @@ class DNN_sym(nn.Module):
     
 
 if __name__ == "__main__":
-    layers = [64, 128, 256, 3]
-    model = DNN_sym(10, 8, layers)
+    import random
+    embed_layers = [20, 40]
+    linear_layers = [64, 128, 256]
+    atom = 1
+    atom_list = []
+    for _ in range(10):
+        atom_list.append(random.randint(1, 2))
+    print(atom_list)
+    model = DNN_sym(atom, atom_list, embed_layers, linear_layers)
     print(model)
+    model.to('cpu')
+    input = torch.rand(len(atom_list), 3)
+    input.to('cpu')
+    output = model(input)
+    print(output)
