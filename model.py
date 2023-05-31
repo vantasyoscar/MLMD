@@ -43,22 +43,28 @@ class DNN_sym(nn.Module):
         self.atom = atom
         self.atom_list = atom_list
         layers = []
+        self.activation = nn.ReLU()
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
-        self.embed1 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
+            layers.append(self.activation)
+        self.embed1 = nn.Sequential(nn.Linear(3, embedding_dim[0]), self.activation, *layers)
         layers = []
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
-        self.embed2 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
+            layers.append(self.activation)
+        self.embed2 = nn.Sequential(nn.Linear(3, embedding_dim[0]), self.activation, *layers)
         layers = []
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
-        self.embed12 = nn.Sequential(nn.Linear(3, embedding_dim[0]), *layers)
+            layers.append(self.activation)
+        self.embed12 = nn.Sequential(nn.Linear(3, embedding_dim[0]),self.activation, *layers)
         layers = []
         for i in range(len(linear_layers)-1):
             layers.append(nn.Linear(linear_layers[i], linear_layers[i+1]))
-        self.linear_layers = nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]) ,*layers)
+            layers.append(self.activation)
+        self.linear_layers = nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]),self.activation ,*layers)
         self.output_layer = nn.Linear(linear_layers[-1], 3)
+        self.output_acti = nn.Sigmoid()
 
     def new_atom_list(self, atom, atom_list):
         self.atom = atom
@@ -86,6 +92,7 @@ class DNN_sym(nn.Module):
         d = d.view(-1, 1).squeeze()
         d = self.linear_layers(d)
         out = self.output_layer(d)
+        out = self.output_acti(out)
         return out
     
 
