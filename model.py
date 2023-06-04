@@ -1,19 +1,30 @@
 import torch
 import torch.nn as nn
 import neighbor_list
+import numpy as np
 
-class MyDNN(nn.Module):
-    def __init__(self, fwd):
-        super(MyDNN, self).__init__()
-        self.layer1 = nn.Linear(62*3*fwd, 256)
-        self.layer2 = nn.Linear(256, 128)
-        self.layer3 = nn.Linear(128, 62*3)
-
-    def forward(self, x):
-        x = torch.Relu(self.layer1(x))
-        x = torch.Sigmoid(self.layer2(x))
-        x = self.layer3(x)
-        return x
+class SchedulerCosineDecayWarmup:
+    def __init__(self, optimizer, lr, warmup_len, total_iters):
+        self.optimizer = optimizer
+        self.lr = lr
+        self.warmup_len = warmup_len
+        self.total_iters = total_iters
+        self.current_iter = 0
+    
+    def get_lr(self):
+        if self.current_iter < self.warmup_len:
+            lr = self.lr * (self.current_iter + 1) / self.warmup_len
+        else:
+            cur = self.current_iter - self.warmup_len
+            total= self.total_iters - self.warmup_len
+            lr = 0.5 * (1 + np.cos(np.pi * cur / total)) * self.lr
+        return lr
+    
+    def step(self):
+        lr = self.get_lr()
+        for param in self.optimizer.param_groups:
+            param['lr'] = lr
+        self.current_iter += 1
 
 
 class DNN_sym(nn.Module):
@@ -43,7 +54,7 @@ class DNN_sym(nn.Module):
         self.atom = atom
         self.atom_list = atom_list
         layers = []
-        self.activation = nn.ReLU()
+        self.activation = nn.LeakyReLU()
         for i in range(len(embedding_dim)-1):
             layers.append(nn.Linear(embedding_dim[i], embedding_dim[i+1]))
             layers.append(self.activation)
@@ -64,7 +75,7 @@ class DNN_sym(nn.Module):
             layers.append(self.activation)
         self.linear_layers = nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]),self.activation ,*layers)
         self.output_layer = nn.Linear(linear_layers[-1], 3)
-        self.output_acti = nn.Sigmoid()
+        #self.output_acti = nn.Sigmoid()
 
     def new_atom_list(self, atom, atom_list):
         self.atom = atom
@@ -92,7 +103,7 @@ class DNN_sym(nn.Module):
         d = d.view(-1, 1).squeeze()
         d = self.linear_layers(d)
         out = self.output_layer(d)
-        out = self.output_acti(out)
+        #out = self.output_acti(out)
         return out
     
 
