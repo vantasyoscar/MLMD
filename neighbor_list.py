@@ -1,4 +1,6 @@
 import numpy as np
+import math
+
 
 def get_neighbor_atoms(coordinates: np.ndarray, cutoff: float = 5, lattice: np.ndarray = None) -> list:
     r"""
@@ -67,20 +69,66 @@ def get_coordinates_from_indices(coordinates: np.ndarray, indices_list: list) ->
         result.append(np.array(coord_list))
     return result
 
-def translate_coordinates(coords_within_distance: list[np.ndarray], coordinates: list[np.ndarray]) -> list[np.ndarray]:
-    r"""
-    将坐标系平移，使得指定的`coordinates`坐标为原点，返回平移后的坐标系。
-
-    Args:
-        coords_within_distance (List[np.array]): 坐标系列表，每个坐标系用一个numpy数组表示。
-        coordinates (List[np.array]): 坐标列表，每个坐标用一个numpy数组表示。
-
-    Returns:
-        List[np.array]: 平移后的坐标系列表。
+def cartesian_to_spherical(coordinates):
     """
-    translated_coords = []
-    for i, coords in enumerate(coords_within_distance):
-        translation_vector = -coordinates[i]
-        translated_group = [coord + translation_vector for coord in coords]
-        translated_coords.append(np.array(translated_group))
-    return translated_coords
+    将n*3的numpy数组中每一行的直角坐标系转换成球坐标系
+
+    输入：
+    coordinates : n*3的numpy数组，每一行表示一个点在三维直角坐标系上的坐标
+
+    输出：
+    n*3的numpy数组，每一行表示一个点在球坐标系上的坐标
+    """
+    # 计算球坐标系上的点的坐标
+    radii = np.linalg.norm(coordinates, axis=1)
+    theta = np.arccos(coordinates[:, 2] / radii)
+    phi = np.arctan2(coordinates[:, 1], coordinates[:, 0])
+
+    # 将弧度转换为角度
+    #theta = np.degrees(theta)
+    #phi = np.degrees(phi)
+
+    # 将球坐标系上的点的坐标存储在一个n*3的numpy数组中
+    spherical_coordinates = np.stack((radii, theta, phi), axis=1)
+
+    return spherical_coordinates
+
+
+def special_translate(coordinates: np.ndarray, lattice: np.ndarray = None) -> np.ndarray:
+    """
+    计算晶格周期性边界条件下，原点到最近的点的距离，即移动成WS原胞
+
+    Parameters
+    ----------
+    coordinates : np.ndarray
+        三维坐标数组，表示晶格中的点。
+    lattice : np.ndarray, optional
+        三行三列的矩阵，表示晶格矢量。默认为 None。
+
+    Returns
+    -------
+    np.ndarray
+        新的WS原胞的坐标
+
+    Examples
+    --------
+    >>> coordinates = np.array([[0, 0, 0], [0.5, 0.5, 0.5]])
+    >>> lattice = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    >>> special_translate(coordinates, lattice)
+    array([[0. , 0. , 0. ],
+           [0.5, 0.5, 0.5]])
+    """
+
+    # 首先生成晶格矢量的所有组合
+    vec_list = np.array(np.meshgrid([-1, 0, 1], [-1, 0, 1], [-1, 0, 1])).T.reshape(-1, 3)
+    # 将晶格矢量乘以系数得到所有的位移向量
+    shift_vec = vec_list @ lattice
+    # 将每个坐标向量平移并找到距离原点最近的位置
+    shifted_coords = coordinates[:, None, :] + shift_vec[None, :, :]
+    distance = np.linalg.norm(shifted_coords, axis=-1)
+    min_index = np.argmin(distance, axis=1)
+    coord_ws = shifted_coords[np.arange(len(coordinates)), min_index]
+    return coord_ws
+
+    
+
