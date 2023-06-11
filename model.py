@@ -84,7 +84,7 @@ class DNN_sym(nn.Module):
     def forward(self, x):
         if (self.atom == 1 and self.atom_list[0] == 1):
             g = self.embed1(x[0])
-        elif (self.atom == 2 and self.atom_list[0] ==2):
+        elif (self.atom == 2 and self.atom_list[0] == 2):
             g = self.embed2(x[0])
         else:
             g = self.embed12(x[0])
@@ -107,12 +107,85 @@ class DNN_sym(nn.Module):
         return out
     
 
+class DNN_sym_new(nn.Module):
+    r'''
+    Creating a DNN model that is permutation invariant. 
+    The new version of the DDN_sym model now can be used to fit any atom type number.
+
+    Args::
+    atom_num: An integer that indicate how many different atom type are in the system.
+    atom: int: A index to distinguish the core atom, the first index should be 0. (e.g. core atom H -> 0)
+    atom_list: list[int]: A list of the index of the neighbor atoms. (e.g. [H, O, O, H, H] -> [0, 1, 1, 0, 0])
+    embedding_dim: list[int]: Determine the structure of the full-connect embedding net structure. (e.g. [20, 40] -> [nn.Linear(3, 20), 
+     nn.Linear(20, 40) ]).
+    linear_layers: list[int]: Determine the structure of the full-connect fitting net structure. Same as embedding_dim.
+
+    Input::
+    input.size() = (num_neighbor_atoms, 3). Each row is the cartesian position of the atom.
+
+    Output::
+    output.size() = (3). Gives out the velocity(displacement) of the core atom.
+
+    Example::
+    Please see the example in "__main__".
+
+    '''
+    def __init__(self, atom_num: int, atom: int, atom_list: list[int], embedding_dim: list[int], linear_layers: list[int]) -> None:
+        super().__init__()
+        self.atom = atom
+        self.atom_list = atom_list
+        self.embed_dict = nn.ModuleDict()
+        self.activation = nn.LeakyReLU()
+        layers = []
+        for i in range(atom_num):
+            for j in range(i, atom_num):
+                for k in range(len(embedding_dim)-1):
+                    layers.append(nn.Linear(embedding_dim[k], embedding_dim[k+1]))
+                    layers.append(self.activation)
+                self.embed_dict.add_module(name=f'embed{str(i)}{str(j)}', 
+                                           module=nn.Sequential(nn.Linear(3, embedding_dim[0]), self.activation, *layers))
+                layers = []
+        layers = []
+        for i in range(len(linear_layers)-1):
+            layers.append(nn.Linear(linear_layers[i], linear_layers[i+1]))
+            layers.append(self.activation)
+        self.linear_layers = nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]), self.activation ,*layers)
+        self.output_layer = nn.Linear(linear_layers[-1], 3)
+
+    def new_atom_list(self, atom, atom_list):
+        self.atom = atom
+        self.atom_list = atom_list
+
+    def forward(self, x):
+        if (self.atom >= self.atom_list[0]):
+            g = self.embed_dict[f'embed{str(self.atom_list[0])}{str(self.atom)}'](x[0])
+        else:
+            g = self.embed_dict[f'embed{str(self.atom)}{str(self.atom_list[0])}'](x[0])
+        for i in range(1, len(x)):
+            if (self.atom >= self.atom_list[i]):
+                g_temp = self.embed_dict[f'embed{str(self.atom_list[i])}{str(self.atom)}'](x[i])
+                g = torch.cat([g, g_temp], dim=0)
+            else:
+                g_temp = self.embed_dict[f'embed{str(self.atom)}{self.atom_list[i]}'](x[i])
+                g = torch.cat([g, g_temp], dim=0)
+        g = g.view(len(x), -1)
+        d = g.T @ x
+        d = d.view(-1, 1).squeeze()
+        d = self.linear_layers(d)
+        out = self.output_layer(d)
+        return out
+    
+
+class DNN_full(nn.Module):
+    pass
+
+
 if __name__ == "__main__":
     embed_layers = [20, 40]
     linear_layers = [64, 128, 256]
-    atom = 1
-    atom_list = [1, 2, 1, 2, 1, 2, 1, 1, 2, 1]
-    model = DNN_sym(atom, atom_list, embed_layers, linear_layers)
+    atom = 0
+    atom_list = [0, 1, 0, 1, 0, 1, 0, 0, 1, 0]
+    model = DNN_sym_new(2, atom, atom_list, embed_layers, linear_layers)
     print(model)
     model.to('cpu')
     input = torch.rand(len(atom_list), 3)
