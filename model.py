@@ -177,7 +177,36 @@ class DNN_sym_new(nn.Module):
     
 
 class DNN_full(nn.Module):
-    pass
+    def __init__(self, atom_list: list[int], cut_off: float, embedding_dim: list[int], linear_layers: list[int], lattice: list[float] = None) -> None:
+        super().__init__()
+        self.atom_num = len(atom_list)
+        self.atom_type_num = len(np.unique(atom_list))
+        self.cut_off = cut_off
+        self.lattice = lattice
+        self.embed_dict = nn.ModuleDict()
+        self.linear_list = nn.ModuleList()
+        self.activation = nn.LeakyReLU()
+        layers = []
+        for i in range(self.atom_type_num):
+            for j in range(i, self.atom_type_num):
+                for k in range(len(embedding_dim)-1):
+                    layers.append(nn.Linear(embedding_dim[k], embedding_dim[k+1]))
+                    layers.append(self.activation)
+                self.embed_dict.add_module(name=f'embed{str(i)}{str(j)}', 
+                                           module=nn.Sequential(nn.Linear(3, embedding_dim[0]), self.activation, *layers))
+                layers = []
+        layers = []
+        for j in range(len(linear_layers)-1):
+            layers.append(nn.Linear(linear_layers[j], linear_layers[j+1]))
+            layers.append(self.activation)
+        for i in range(self.atom_num):
+            self.linear_list.append(nn.Sequential(nn.Linear(embedding_dim[-1] * 3, linear_layers[0]), self.activation, *layers, nn.Linear(linear_layers[-1], 3)))
+        
+    def forward(self, x):
+        # neighboring list generation:
+        x_ext = x - x[0]
+        for i in range(1, self.atom_num):
+            pass
 
 
 if __name__ == "__main__":
