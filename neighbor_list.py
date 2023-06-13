@@ -51,6 +51,7 @@ def get_neighbor_atoms(coordinates: np.ndarray, cutoff: float = 5, lattice: np.n
     return result
 
 
+
 def get_coordinates_from_indices(coordinates: np.ndarray, indices_list: list) -> list:
     r"""
     该函数接受坐标数组和原子序数列表作为输入，并返回一个列表，
@@ -84,6 +85,7 @@ def cartesian_to_spherical(coordinates):
     theta = np.arccos(coordinates[:, 2] / radii)
     phi = np.arctan2(coordinates[:, 1], coordinates[:, 0])
 
+
     # 将弧度转换为角度
     #theta = np.degrees(theta)
     #phi = np.degrees(phi)
@@ -94,7 +96,35 @@ def cartesian_to_spherical(coordinates):
     return spherical_coordinates
 
 
-def special_translate(coordinates: np.ndarray, lattice: np.ndarray = None) -> np.ndarray:
+def special_cartesian_to_spherical(coordinates):
+    """
+    将n*3的numpy数组中每一行的直角坐标系转换成球坐标系
+
+    输入：
+    coordinates : n*3的numpy数组，每一行表示一个点在三维直角坐标系上的坐标
+
+    输出：
+    n*3的numpy数组，每一行表示一个点在球坐标系上的坐标
+    """
+    # 计算球坐标系上的点的坐标
+    radii = np.linalg.norm(coordinates, axis=1)
+    
+    theta = np.arccos(coordinates[:, 2] / radii)
+
+    phi = np.arctan2(coordinates[:, 1], coordinates[:, 0])
+
+    radii = 10/(radii**2)
+    # 将弧度转换为角度
+    #theta = np.degrees(theta)
+    #phi = np.degrees(phi)
+
+    # 将球坐标系上的点的坐标存储在一个n*3的numpy数组中
+    spherical_coordinates = np.stack((radii, theta, phi), axis=1)
+
+    return spherical_coordinates
+
+
+def special_translate_vec(coordinates: np.ndarray, lattice: np.ndarray = None) -> np.ndarray:
     """
     计算晶格周期性边界条件下，原点到最近的点的距离，即移动成WS原胞
 
@@ -128,7 +158,56 @@ def special_translate(coordinates: np.ndarray, lattice: np.ndarray = None) -> np
     distance = np.linalg.norm(shifted_coords, axis=-1)
     min_index = np.argmin(distance, axis=1)
     coord_ws = shifted_coords[np.arange(len(coordinates)), min_index]
-    return coord_ws
+    return coord_ws - coordinates  
 
-    
 
+def encode_coordinantes(train_data,neighborlist,Lattice,num):
+    neighbor_coord = []
+    vec = []
+    for i in range(num):
+        neighboratom = get_coordinates_from_indices(train_data[i].reshape(-1,3),neighborlist)
+        for j ,k in enumerate(neighboratom):
+            #平移到中心           
+            vector_3d = np.tile(train_data[i].reshape(-1,3)[j],(k.shape[0],1))
+            #coord_ws = MLMD.neighbor_list.special_translate(k-vector_3d,lattice = LiF["Li"].lattice)
+            if i == 0:
+                vec.append(special_translate_vec(k - vector_3d,lattice = Lattice))
+                #WS原胞中心 MLMD.neighbor_list.special_translate(k-vector_3d,lattice = LiF["Li"].lattice)
+                #球坐标 MLMD.neighbor_list.cartesian_to_spherical(k-vector_3d)
+                neighbor_coord.append([k - vector_3d + vec[j]])
+            else:
+                neighbor_coord[j].append(k - vector_3d + vec[j])
+    return neighbor_coord,vec
+
+def get_atom_kind_list(neighborlist,atom_dict):
+    #输入临近原子序数，输出原子类型（0，1……）
+    atom_kind_list = []
+    for i in neighborlist:
+        atom_kind_list.append([])
+        for j in i:
+            for k,l in enumerate(atom_dict.values()): 
+                j -= l.number
+                if j < 0:
+                    atom_kind_list[-1].append(k)
+                    break
+    return atom_kind_list
+
+'''废弃的球坐标编码
+def encode_coordinantes(train_data,neighborlist,Lattice,num):
+    neighbor_coord = []
+    vec = []
+    for i in range(num):
+        neighboratom = MLMD.neighbor_list.get_coordinates_from_indices(train_data[i].reshape(-1,3),neighborlist)
+        for j ,k in enumerate(neighboratom):
+            #平移到中心           
+            vector_3d = np.tile(train_data[i].reshape(-1,3)[j],(k.shape[0],1))
+            #coord_ws = MLMD.neighbor_list.special_translate(k-vector_3d,lattice = LiF["Li"].lattice)
+            if i == 0:
+                vec.append(MLMD.neighbor_list.special_translate_vec(k - vector_3d,lattice = Lattice))
+                #WS原胞中心 MLMD.neighbor_list.special_translate(k-vector_3d,lattice = LiF["Li"].lattice)
+                #球坐标 MLMD.neighbor_list.cartesian_to_spherical(k-vector_3d)
+                neighbor_coord.append([MLMD.neighbor_list.special_cartesian_to_spherical(k - vector_3d + vec[j])])
+            else:
+                neighbor_coord[j].append(MLMD.neighbor_list.special_cartesian_to_spherical(k - vector_3d + vec[j]))
+    return neighbor_coord,vec
+'''
