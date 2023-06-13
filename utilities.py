@@ -11,6 +11,13 @@ def predict_v(coord,model_list,atoms):
         v_pre.append(output_array.cpu().numpy())    
     return np.array(v_pre)
 
+def predict_v_full(model,coord,atom_dict,atomic_mass):
+
+    f_predicted = model(torch.from_numpy(coord).float().to("cpu")).reshape(-1,3).detach().numpy()
+    atomic_mass = 1/np.array(atomic_mass)
+    v = MLMD.utilities.get_force_from_v([f_predicted],atom_dict,atomic_mass)
+    return v
+
 def step(coord,v):
     return coord + v
 
@@ -54,12 +61,13 @@ def get_train_data(atom_dict):
     return train_data
 
 def get_force_from_v(v,atom_dict,atomic_mass):
-    for i in range(len(v)):
+    v1 = np.copy(v)
+    for i in range(len(v1)):
         cursor = 0
         for j,k in enumerate(atom_dict.values()):            
-            v[i][cursor: cursor + k.number] *= atomic_mass[j]
+            v1[i][cursor: cursor + k.number] *= atomic_mass[j]
             cursor += k.number
-    return v
+    return v1
 
 def gen_xdatcar(coord,atom_dict,name = "XDATCAR"):
     with open('XDATCAR', 'w') as f:
