@@ -56,7 +56,7 @@ def learn_from_QM(model,qmcoord,qmforce,lr_new):
     optimizer = torch.optim.AdamW(model.parameters(), lr = lr_new)
     for i in range(len(qmcoord)-1):
         
-        print(i,": ",end= "")
+        print('{:3d}:'.format(i),end= "")
         model,optimizer,loss = MLMD.step.trainning(model,optimizer,qmcoord[i],qmforce[i])
 
     return model
